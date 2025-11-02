@@ -408,7 +408,7 @@ El sistema actual permite:
 ---
 
 ## 🔹 Repositorio del proyecto  
-📁 [Pendiente de enlace al repositorio YAKU en GitHub](#)
+📁 [https://github.com/00CARLOSECG00/404-Not-Found-Sleep-](#)
 
 ---
 
