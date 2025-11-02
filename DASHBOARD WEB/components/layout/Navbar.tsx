@@ -44,7 +44,7 @@ export default function Navbar({ isAuthenticated = false, onLogout }: NavbarProp
           <Link href="/" className="flex items-center space-x-2 group">
             <Cloud className="h-8 w-8 text-blue-600 group-hover:text-blue-700 transition-colors" />
             <span className="text-xl font-bold text-neutral-900">
-              Alerta Temprana
+              Yaku
             </span>
           </Link>
 

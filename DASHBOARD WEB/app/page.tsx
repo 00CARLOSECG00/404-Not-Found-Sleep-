@@ -61,6 +61,39 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-neutral-50 to-transparent z-10"></div>
       </section>
 
+      {/* Nueva sección Yaku */}
+      <section className="py-20 lg:py-28 bg-gradient-to-br from-blue-600 to-blue-700 text-white relative overflow-hidden">
+        {/* Patrón decorativo de fondo */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10">
+            <Droplets className="h-32 w-32" />
+          </div>
+          <div className="absolute bottom-10 right-10">
+            <Droplets className="h-40 w-40" />
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm mb-8">
+            <Droplets className="h-8 w-8" />
+          </div>
+          
+          <h2 className="text-3xl lg:text-5xl font-bold mb-6">
+            Nuestro sistema se llama <span className="text-blue-200">Yaku</span>
+          </h2>
+          
+          <p className="text-xl lg:text-2xl text-blue-50 mb-4 leading-relaxed italic">
+            Que significa agua en lengua indígena Quechua
+          </p>
+          
+          <div className="w-20 h-1 bg-blue-300 mx-auto my-8"></div>
+          
+          <p className="text-lg lg:text-xl text-blue-100 leading-relaxed max-w-3xl mx-auto">
+            Porque el agua es la que nos habla primero cuando hay riesgo, y nosotros debemos escucharla.
+          </p>
+        </div>
+      </section>
+
       <section className="py-16 lg:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">

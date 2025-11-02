@@ -10,7 +10,7 @@ export default function Footer() {
             <div className="flex items-center space-x-2 mb-4">
               <Cloud className="h-6 w-6 text-blue-400" />
               <span className="text-lg font-bold text-white">
-                Alerta Temprana
+                Yaku
               </span>
             </div>
             <p className="text-sm text-neutral-400">
