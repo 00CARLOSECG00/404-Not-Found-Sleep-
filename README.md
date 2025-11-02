@@ -26,21 +26,18 @@ Sistema de monitoreo hidrológico en tiempo real para la protección de la comun
 El sistema está compuesto por 4 módulos principales que trabajan en conjunto:
 
 1. **Simulación** (`simulacion/`): Simula sensores que envían datos vía UDP y un gateway que los recibe
-2. **Cola** (`cola/`): Servicio de cola HTTP que almacena mensajes temporalmente
+2. **Cola** (`cola/`): Servicio de cola que almacena mensajes temporalmente
 3. **Backend ETL** (`back/`): Procesa datos, calcula métricas, envía alertas y guarda en Supabase
-4. **Dashboard Web** (`DASHBOARD WEB/`): Interfaz web Next.js para visualización y gestión
+4. **Dashboard Web** (`DASHBOARD WEB/`): Interfaz web para visualización, gestión y registro de números telefónicos 
 
 ---
 
-Aplicación web moderna construida con Next.js 13, TypeScript y Tailwind CSS que proporciona visualización en tiempo real y gestión del sistema.
 
 #### Tecnologías
 
 - **Framework**: Next.js 13.5.1
-- **Lenguaje**: TypeScript
-- **Estilos**: Tailwind CSS
+- **Lenguaje**: TypeScript, python
 - **UI Components**: Radix UI
-- **Gráficos**: Recharts
 - **Base de Datos**: Supabase (cliente JS)
 
 #### Páginas Principales
@@ -202,25 +199,6 @@ sudo docker compose down
 
 ---
 
-
-```json
-{
-  "ts": "2025-11-01T12:10:00Z",
-  "nivel_m": 0.42,
-  "lluvia_mm": 1.6,
-  "base_level": 0.42,
-  "delta_h": -2595.0,
-  "ror": 0.05,
-  "intensidad_lluvia": 3.2,
-  "proyeccion_30min": 0.445,
-  "pendiente_hidraulica": 0.0018125,
-  "persistencia": 0,
-  "procesado_en": "2025-11-01T12:10:10Z"
-}
-```
-
----
-
 ## Métricas Hidrológicas Calculadas
 
 ### 1. BaseLevel
@@ -305,8 +283,7 @@ sudo docker compose down
 ✅ **Sistema de Alertas Automático**: Detección y notificación de condiciones de riesgo  
 ✅ **Visualización Interactiva**: Gráficos en tiempo real con Recharts  
 ✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones  
-✅ **Arquitectura Modular**: Componentes independientes y escalables  
-✅ **Dockerizado**: Fácil despliegue con Docker Compose  
+✅ **Asíncrono**: No requiere una conexión de red constante o estable. Los mensajes se almacenan en colas, lo que permite que se procesen de manera independiente y en diferentes momentos
 ✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase  
 
 ---
@@ -315,9 +292,7 @@ sudo docker compose down
 
 - El sistema está **completamente funcional** y no requiere modificaciones
 - La cola actual usa almacenamiento en memoria. Para producción, considera usar Redis o RabbitMQ
-- El gateway soporta 3 modos de SMS: SIMULATE (para desarrollo), TWILIO y GSM (para producción)
 - Los umbrales de alerta están configurados en el código y pueden ajustarse según necesidades
-- El dashboard requiere autenticación para acceder a las secciones administrativas (`/app/*`)
 
 ---
 
@@ -372,10 +347,7 @@ La **estructura física (instalación real de sensores y hub LoRa)** aún no se 
 
 ### Lenguajes y tecnologías  
 - **Framework:** Next.js 13.5.1  
-- **Lenguaje:** TypeScript  
-- **Estilos:** Tailwind CSS  
-- **Componentes UI:** Radix UI  
-- **Gráficos:** Recharts  
+- **Lenguaje:** TypeScript 
 - **Base de Datos:** Supabase  
 - **Automatización de flujos:** n8n  
 - **API de mensajería:** Twilio (WhatsApp/SMS)  
