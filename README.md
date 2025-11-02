@@ -272,17 +272,6 @@ sudo docker compose down
 
 ---
 
-#### GET `/health`
-Verifica el estado del servicio.
-
-**Respuesta**:
-```json
-{
-  "status": "ok"
-}
-```
-
-
 ## Estructura del Proyecto
 
 ```
