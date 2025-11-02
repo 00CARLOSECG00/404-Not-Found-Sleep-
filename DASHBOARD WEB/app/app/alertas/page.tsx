@@ -1,104 +1,139 @@
 'use client';
 
-import { useState } from 'react';
-import { Download, Eye, Filter, MapPin, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Download, Eye, Filter, Search } from 'lucide-react';
 import SeverityBadge from '@/components/ui/SeverityBadge';
 import Modal from '@/components/ui/Modal';
 import EmptyState from '@/components/ui/EmptyState';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import AlertBanner from '@/components/ui/AlertBanner';
+import { supabase, MedicionHidrologica } from '@/lib/supabase';
 
-interface AlertDetail {
+// Marcar como dinámico para evitar generación estática
+export const dynamic = 'force-dynamic';
+
+interface AlertItem {
   id: string;
   fecha: string;
   hora: string;
   severidad: 'baja' | 'media' | 'alta';
   descripcion: string;
-  zona: string;
-  sensor: string;
-  nivelAgua: string;
-  precipitacion: string;
-  temperatura: string;
-  destinatarios: number;
-  entregados: number;
-  fallidos: number;
-  coordenadas: string;
+  datos: MedicionHidrologica;
 }
 
 export default function AlertasPrivadaPage() {
-  const [selectedAlert, setSelectedAlert] = useState<AlertDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedAlert, setSelectedAlert] = useState<AlertItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('todas');
-  const [filterZona, setFilterZona] = useState('todas');
-  const [filterSensor, setFilterSensor] = useState('todos');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15;
+  const [alertas, setAlertas] = useState<AlertItem[]>([]);
 
-  const mockAlertas: AlertDetail[] = [
-    {
-      id: '1',
-      fecha: '2025-11-01',
-      hora: '14:30:25',
-      severidad: 'alta',
-      descripcion: 'Nivel de agua crítico detectado en sensor principal',
-      zona: 'Zona A - Centro',
-      sensor: 'Sensor-01',
-      nivelAgua: '1.8 m',
-      precipitacion: '35 mm/h',
-      temperatura: '16.5°C',
-      destinatarios: 150,
-      entregados: 148,
-      fallidos: 2,
-      coordenadas: '4.9592° N, 73.9156° W',
-    },
-    {
-      id: '2',
-      fecha: '2025-11-01',
-      hora: '10:15:42',
-      severidad: 'media',
-      descripcion: 'Incremento de precipitación por encima del umbral',
-      zona: 'Zona B - Norte',
-      sensor: 'Sensor-02',
-      nivelAgua: '1.2 m',
-      precipitacion: '22 mm/h',
-      temperatura: '15.8°C',
-      destinatarios: 150,
-      entregados: 150,
-      fallidos: 0,
-      coordenadas: '4.9612° N, 73.9145° W',
-    },
-    {
-      id: '3',
-      fecha: '2025-10-31',
-      hora: '18:45:10',
-      severidad: 'baja',
-      descripcion: 'Nivel de agua en aumento moderado',
-      zona: 'Zona C - Sur',
-      sensor: 'Sensor-03',
-      nivelAgua: '0.9 m',
-      precipitacion: '8 mm/h',
-      temperatura: '17.2°C',
-      destinatarios: 150,
-      entregados: 149,
-      fallidos: 1,
-      coordenadas: '4.9572° N, 73.9167° W',
-    },
-  ];
+  useEffect(() => {
+    cargarAlertas();
+    // Refrescar cada 30 segundos
+    const interval = setInterval(cargarAlertas, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const [alertas] = useState<AlertDetail[]>(mockAlertas);
+  const determinarSeveridad = (medicion: MedicionHidrologica): 'baja' | 'media' | 'alta' => {
+    const nivel = medicion.nivel_m;
+    const proyeccion = medicion.proyeccion_30min;
+    const ror = medicion.ror;
+    const persistencia = medicion.persistencia;
+
+    // Lógica de severidad basada en los umbrales del backend
+    if (nivel > 0.5 || (proyeccion && proyeccion > 0.6) || (ror && ror > 0.1) || persistencia >= 3) {
+      return 'alta';
+    }
+    if (nivel > 0.3 || persistencia >= 2) {
+      return 'media';
+    }
+    return 'baja';
+  };
+
+  const generarDescripcion = (medicion: MedicionHidrologica): string => {
+    const partes: string[] = [];
+    
+    if (medicion.nivel_m > 0.5) {
+      partes.push(`Nivel crítico: ${medicion.nivel_m.toFixed(2)}m`);
+    }
+    if (medicion.proyeccion_30min && medicion.proyeccion_30min > 0.6) {
+      partes.push(`Proyección a 30min: ${medicion.proyeccion_30min.toFixed(2)}m`);
+    }
+    if (medicion.ror && medicion.ror > 0.1) {
+      partes.push(`RoR alto: ${medicion.ror.toFixed(4)} m/h`);
+    }
+    if (medicion.persistencia >= 3) {
+      partes.push(`Persistencia: ${medicion.persistencia} mediciones`);
+    }
+    
+    if (partes.length === 0) {
+      return `Nivel: ${medicion.nivel_m.toFixed(2)}m, Lluvia: ${medicion.lluvia_mm.toFixed(2)}mm`;
+    }
+    
+    return partes.join(' | ');
+  };
+
+  const cargarAlertas = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: supabaseError } = await supabase
+        .from('mediciones_hidrologicas')
+        .select('*')
+        .order('ts', { ascending: false })
+        .limit(200);
+
+      if (supabaseError) {
+        // Si es un error de configuración, mostrar mensaje específico
+        if (supabaseError.code === 'CONFIG_ERROR' || supabaseError.message?.includes('credentials not configured')) {
+          throw new Error('Credenciales de Supabase no configuradas. Por favor, configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en tu archivo .env.local');
+        }
+        throw supabaseError;
+      }
+
+      if (data && data.length > 0) {
+        const alertasGeneradas: AlertItem[] = data.map((medicion) => {
+          const fechaHora = new Date(medicion.ts);
+          return {
+            id: medicion.id.toString(),
+            fecha: fechaHora.toLocaleDateString('es-ES'),
+            hora: fechaHora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            severidad: determinarSeveridad(medicion),
+            descripcion: generarDescripcion(medicion),
+            datos: medicion,
+          };
+        });
+        
+        setAlertas(alertasGeneradas);
+      } else {
+        setAlertas([]);
+      }
+    } catch (err) {
+      console.error('Error cargando alertas:', err);
+      setError('Error al cargar las alertas. Verifica la configuración de Supabase.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredAlertas = alertas.filter((alerta) => {
     const matchesSearch = alerta.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSeverity = filterSeverity === 'todas' || alerta.severidad === filterSeverity;
-    const matchesZona = filterZona === 'todas' || alerta.zona === filterZona;
-    const matchesSensor = filterSensor === 'todos' || alerta.sensor === filterSensor;
 
     let matchesDate = true;
     if (dateFrom && dateTo) {
-      matchesDate = alerta.fecha >= dateFrom && alerta.fecha <= dateTo;
+      const alertaDate = new Date(alerta.datos.ts).toISOString().split('T')[0];
+      matchesDate = alertaDate >= dateFrom && alertaDate <= dateTo;
     }
 
-    return matchesSearch && matchesSeverity && matchesZona && matchesSensor && matchesDate;
+    return matchesSearch && matchesSeverity && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredAlertas.length / itemsPerPage);
@@ -108,7 +143,38 @@ export default function AlertasPrivadaPage() {
   );
 
   const handleExport = () => {
-    alert('Exportando a CSV...');
+    // Convertir alertas a CSV
+    const headers = ['ID', 'Fecha', 'Hora', 'Severidad', 'Nivel (m)', 'Lluvia (mm)', 'RoR (m/h)', 'Intensidad Lluvia (mm/h)', 'Proyección 30min (m)', 'Pendiente Hidráulica', 'Persistencia', 'Descripción'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredAlertas.map(alerta => {
+        const m = alerta.datos;
+        return [
+          alerta.id,
+          alerta.fecha,
+          alerta.hora,
+          alerta.severidad,
+          m.nivel_m.toFixed(2),
+          m.lluvia_mm.toFixed(2),
+          m.ror ? m.ror.toFixed(4) : '',
+          m.intensidad_lluvia ? m.intensidad_lluvia.toFixed(2) : '',
+          m.proyeccion_30min ? m.proyeccion_30min.toFixed(2) : '',
+          m.pendiente_hidraulica.toFixed(6),
+          m.persistencia.toString(),
+          `"${alerta.descripcion.replace(/"/g, '""')}"`
+        ].join(',');
+      })
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `alertas_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -129,10 +195,18 @@ export default function AlertasPrivadaPage() {
           </button>
         </div>
 
+        {error && (
+          <div className="mb-6">
+            <AlertBanner type="error" title="Error" onClose={() => setError(null)}>
+              {error}
+            </AlertBanner>
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 mb-6">
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">Filtros</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div>
               <label htmlFor="dateFrom" className="block text-sm font-medium text-neutral-700 mb-2">
                 Fecha desde
@@ -177,40 +251,6 @@ export default function AlertasPrivadaPage() {
             </div>
 
             <div>
-              <label htmlFor="zona" className="block text-sm font-medium text-neutral-700 mb-2">
-                Zona
-              </label>
-              <select
-                id="zona"
-                value={filterZona}
-                onChange={(e) => setFilterZona(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="todas">Todas</option>
-                <option value="Zona A - Centro">Zona A - Centro</option>
-                <option value="Zona B - Norte">Zona B - Norte</option>
-                <option value="Zona C - Sur">Zona C - Sur</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="sensor" className="block text-sm font-medium text-neutral-700 mb-2">
-                Sensor
-              </label>
-              <select
-                id="sensor"
-                value={filterSensor}
-                onChange={(e) => setFilterSensor(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="todos">Todos</option>
-                <option value="Sensor-01">Sensor-01</option>
-                <option value="Sensor-02">Sensor-02</option>
-                <option value="Sensor-03">Sensor-03</option>
-              </select>
-            </div>
-
-            <div>
               <label htmlFor="search" className="block text-sm font-medium text-neutral-700 mb-2">
                 Buscar
               </label>
@@ -233,8 +273,6 @@ export default function AlertasPrivadaPage() {
               onClick={() => {
                 setSearchTerm('');
                 setFilterSeverity('todas');
-                setFilterZona('todas');
-                setFilterSensor('todos');
                 setDateFrom('');
                 setDateTo('');
               }}
@@ -245,7 +283,9 @@ export default function AlertasPrivadaPage() {
           </div>
         </div>
 
-        {filteredAlertas.length === 0 ? (
+        {loading ? (
+          <LoadingSpinner size="lg" text="Cargando alertas..." />
+        ) : filteredAlertas.length === 0 ? (
           <EmptyState
             icon={<Filter className="h-8 w-8" />}
             title="No se encontraron alertas"
@@ -267,12 +307,6 @@ export default function AlertasPrivadaPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-neutral-700 uppercase">
                         Descripción
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-700 uppercase">
-                        Zona
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-700 uppercase">
-                        Sensor
-                      </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-neutral-700 uppercase">
                         Acciones
                       </th>
@@ -290,12 +324,6 @@ export default function AlertasPrivadaPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-neutral-900 max-w-xs">
                           {alerta.descripcion}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                          {alerta.zona}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                          {alerta.sensor}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <button
@@ -373,69 +401,75 @@ export default function AlertasPrivadaPage() {
                         {selectedAlert.descripcion}
                       </dd>
                     </div>
-                    <div>
-                      <dt className="text-sm text-neutral-600">Zona</dt>
-                      <dd className="text-sm font-medium text-neutral-900">
-                        {selectedAlert.zona}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-sm text-neutral-600">Sensor</dt>
-                      <dd className="text-sm font-medium text-neutral-900">
-                        {selectedAlert.sensor}
-                      </dd>
-                    </div>
                   </dl>
                 </div>
 
                 <div>
                   <h3 className="text-sm font-semibold text-neutral-700 uppercase mb-4">
-                    Mediciones del Sensor
+                    Mediciones Hidrológicas
                   </h3>
                   <dl className="space-y-3">
                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                       <dt className="text-sm text-blue-700">Nivel del Agua</dt>
                       <dd className="text-2xl font-bold text-blue-900">
-                        {selectedAlert.nivelAgua}
+                        {selectedAlert.datos.nivel_m.toFixed(2)} m
+                      </dd>
+                      <dd className="text-xs text-blue-600 mt-1">
+                        Base Level: {selectedAlert.datos.base_level.toFixed(2)} m
                       </dd>
                     </div>
                     <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                      <dt className="text-sm text-blue-700">Precipitación</dt>
+                      <dt className="text-sm text-blue-700">Lluvia</dt>
                       <dd className="text-2xl font-bold text-blue-900">
-                        {selectedAlert.precipitacion}
+                        {selectedAlert.datos.lluvia_mm.toFixed(2)} mm
                       </dd>
+                      {selectedAlert.datos.intensidad_lluvia && (
+                        <dd className="text-xs text-blue-600 mt-1">
+                          Intensidad: {selectedAlert.datos.intensidad_lluvia.toFixed(2)} mm/h
+                        </dd>
+                      )}
                     </div>
-                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                      <dt className="text-sm text-blue-700">Temperatura</dt>
-                      <dd className="text-2xl font-bold text-blue-900">
-                        {selectedAlert.temperatura}
-                      </dd>
-                    </div>
+                    {selectedAlert.datos.ror && (
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <dt className="text-sm text-blue-700">Rate of Rise (RoR)</dt>
+                        <dd className="text-2xl font-bold text-blue-900">
+                          {selectedAlert.datos.ror.toFixed(4)} m/h
+                        </dd>
+                      </div>
+                    )}
+                    {selectedAlert.datos.proyeccion_30min && (
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <dt className="text-sm text-blue-700">Proyección 30min</dt>
+                        <dd className="text-2xl font-bold text-blue-900">
+                          {selectedAlert.datos.proyeccion_30min.toFixed(2)} m
+                        </dd>
+                      </div>
+                    )}
                   </dl>
                 </div>
               </div>
 
               <div className="border-t border-neutral-200 pt-6">
                 <h3 className="text-sm font-semibold text-neutral-700 uppercase mb-4">
-                  Estado de Entrega de Notificaciones
+                  Parámetros Hidrológicos
                 </h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200 text-center">
-                    <p className="text-sm text-neutral-600 mb-1">Total Destinatarios</p>
-                    <p className="text-3xl font-bold text-neutral-900">
-                      {selectedAlert.destinatarios}
+                    <p className="text-sm text-neutral-600 mb-1">ΔH</p>
+                    <p className="text-2xl font-bold text-neutral-900">
+                      {selectedAlert.datos.delta_h.toFixed(2)} m
                     </p>
                   </div>
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200 text-center">
-                    <p className="text-sm text-green-700 mb-1">Entregados</p>
-                    <p className="text-3xl font-bold text-green-900">
-                      {selectedAlert.entregados}
+                  <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200 text-center">
+                    <p className="text-sm text-neutral-600 mb-1">Pendiente Hidráulica</p>
+                    <p className="text-2xl font-bold text-neutral-900">
+                      {selectedAlert.datos.pendiente_hidraulica.toFixed(6)}
                     </p>
                   </div>
-                  <div className="bg-red-50 rounded-lg p-4 border border-red-200 text-center">
-                    <p className="text-sm text-red-700 mb-1">Fallidos</p>
-                    <p className="text-3xl font-bold text-red-900">
-                      {selectedAlert.fallidos}
+                  <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200 text-center">
+                    <p className="text-sm text-neutral-600 mb-1">Persistencia</p>
+                    <p className="text-2xl font-bold text-neutral-900">
+                      {selectedAlert.datos.persistencia}
                     </p>
                   </div>
                 </div>
@@ -443,15 +477,24 @@ export default function AlertasPrivadaPage() {
 
               <div className="border-t border-neutral-200 pt-6">
                 <h3 className="text-sm font-semibold text-neutral-700 uppercase mb-4">
-                  Ubicación del Sensor
+                  Información de Procesamiento
                 </h3>
-                <div className="flex items-center space-x-2 text-neutral-900">
-                  <MapPin className="h-5 w-5 text-blue-600" />
-                  <span className="font-mono text-sm">{selectedAlert.coordenadas}</span>
-                </div>
-                <div className="mt-4 bg-neutral-100 rounded-lg h-48 flex items-center justify-center border border-neutral-200">
-                  <p className="text-neutral-600">Mapa de ubicación del sensor</p>
-                </div>
+                <dl className="space-y-2">
+                  <div className="flex justify-between">
+                    <dt className="text-sm text-neutral-600">Procesado en:</dt>
+                    <dd className="text-sm font-medium text-neutral-900">
+                      {new Date(selectedAlert.datos.procesado_en).toLocaleString('es-ES')}
+                    </dd>
+                  </div>
+                  {selectedAlert.datos.created_at && (
+                    <div className="flex justify-between">
+                      <dt className="text-sm text-neutral-600">Registrado en:</dt>
+                      <dd className="text-sm font-medium text-neutral-900">
+                        {new Date(selectedAlert.datos.created_at).toLocaleString('es-ES')}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
               </div>
             </div>
           )}
@@ -460,3 +503,4 @@ export default function AlertasPrivadaPage() {
     </div>
   );
 }
+

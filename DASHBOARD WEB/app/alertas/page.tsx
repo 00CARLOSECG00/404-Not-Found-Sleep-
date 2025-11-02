@@ -6,6 +6,10 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import SeverityBadge from '@/components/ui/SeverityBadge';
 import AlertBanner from '@/components/ui/AlertBanner';
+import { supabase, MedicionHidrologica } from '@/lib/supabase';
+
+// Marcar como dinámico para evitar generación estática
+export const dynamic = 'force-dynamic';
 
 interface AlertItem {
   id: string;
@@ -13,56 +17,111 @@ interface AlertItem {
   hora: string;
   severidad: 'baja' | 'media' | 'alta';
   descripcion: string;
-  zona: string;
+  datos?: MedicionHidrologica;
 }
 
 export default function AlertasPage() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSeverity, setFilterSeverity] = useState<string>('todas');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const mockAlertas: AlertItem[] = [
-    {
-      id: '1',
-      fecha: '2025-11-01',
-      hora: '14:30',
-      severidad: 'alta',
-      descripcion: 'Nivel de agua crítico detectado en sensor principal',
-      zona: 'Zona A - Centro',
-    },
-    {
-      id: '2',
-      fecha: '2025-11-01',
-      hora: '10:15',
-      severidad: 'media',
-      descripcion: 'Incremento de precipitación por encima del umbral',
-      zona: 'Zona B - Norte',
-    },
-    {
-      id: '3',
-      fecha: '2025-10-31',
-      hora: '18:45',
-      severidad: 'baja',
-      descripcion: 'Nivel de agua en aumento moderado',
-      zona: 'Zona C - Sur',
-    },
-  ];
-
   const [alertas, setAlertas] = useState<AlertItem[]>([]);
 
   useEffect(() => {
-    setTimeout(() => {
-      setAlertas(mockAlertas);
-      setLoading(false);
-    }, 1000);
+    cargarAlertas();
+    // Refrescar cada 30 segundos
+    const interval = setInterval(cargarAlertas, 30000);
+    return () => clearInterval(interval);
   }, []);
 
+  const determinarSeveridad = (medicion: MedicionHidrologica): 'baja' | 'media' | 'alta' => {
+    const nivel = medicion.nivel_m;
+    const proyeccion = medicion.proyeccion_30min;
+    const ror = medicion.ror;
+    const persistencia = medicion.persistencia;
+
+    // Lógica de severidad basada en los umbrales del backend
+    if (nivel > 0.5 || (proyeccion && proyeccion > 0.6) || (ror && ror > 0.1) || persistencia >= 3) {
+      return 'alta';
+    }
+    if (nivel > 0.3 || persistencia >= 2) {
+      return 'media';
+    }
+    return 'baja';
+  };
+
+  const generarDescripcion = (medicion: MedicionHidrologica): string => {
+    const partes: string[] = [];
+    
+    if (medicion.nivel_m > 0.5) {
+      partes.push(`Nivel crítico: ${medicion.nivel_m.toFixed(2)}m`);
+    }
+    if (medicion.proyeccion_30min && medicion.proyeccion_30min > 0.6) {
+      partes.push(`Proyección a 30min: ${medicion.proyeccion_30min.toFixed(2)}m`);
+    }
+    if (medicion.ror && medicion.ror > 0.1) {
+      partes.push(`RoR alto: ${medicion.ror.toFixed(4)} m/h`);
+    }
+    if (medicion.persistencia >= 3) {
+      partes.push(`Persistencia: ${medicion.persistencia} mediciones`);
+    }
+    
+    if (partes.length === 0) {
+      return `Nivel: ${medicion.nivel_m.toFixed(2)}m, Lluvia: ${medicion.lluvia_mm.toFixed(2)}mm`;
+    }
+    
+    return partes.join(' | ');
+  };
+
+  const cargarAlertas = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: supabaseError } = await supabase
+        .from('mediciones_hidrologicas')
+        .select('*')
+        .order('ts', { ascending: false })
+        .limit(50);
+
+      if (supabaseError) {
+        // Si es un error de configuración, mostrar mensaje específico
+        if (supabaseError.code === 'CONFIG_ERROR' || supabaseError.message?.includes('credentials not configured')) {
+          throw new Error('Credenciales de Supabase no configuradas. Por favor, configura NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en tu archivo .env.local');
+        }
+        throw supabaseError;
+      }
+
+      if (data && data.length > 0) {
+        const alertasGeneradas: AlertItem[] = data.map((medicion) => {
+          const fechaHora = new Date(medicion.ts);
+          return {
+            id: medicion.id.toString(),
+            fecha: fechaHora.toLocaleDateString('es-ES'),
+            hora: fechaHora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            severidad: determinarSeveridad(medicion),
+            descripcion: generarDescripcion(medicion),
+            datos: medicion,
+          };
+        });
+        
+        setAlertas(alertasGeneradas);
+      } else {
+        setAlertas([]);
+      }
+    } catch (err) {
+      console.error('Error cargando alertas:', err);
+      setError('Error al cargar las alertas. Verifica la configuración de Supabase.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredAlertas = alertas.filter((alerta) => {
-    const matchesSearch = alerta.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         alerta.zona.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = alerta.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSeverity = filterSeverity === 'todas' || alerta.severidad === filterSeverity;
     return matchesSearch && matchesSeverity;
   });
@@ -166,8 +225,8 @@ export default function AlertasPage() {
         {loading ? (
           <LoadingSpinner size="lg" text="Cargando alertas..." />
         ) : error ? (
-          <AlertBanner type="error" title="Error al cargar alertas">
-            No se pudieron cargar las alertas. Por favor, inténtelo de nuevo más tarde.
+          <AlertBanner type="error" title="Error al cargar alertas" onClose={() => setError(null)}>
+            {error}
           </AlertBanner>
         ) : filteredAlertas.length === 0 ? (
           <EmptyState
@@ -191,9 +250,6 @@ export default function AlertasPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">
                         Descripción
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-neutral-700 uppercase tracking-wider">
-                        Zona
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
@@ -208,9 +264,6 @@ export default function AlertasPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-neutral-900">
                           {alerta.descripcion}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-600">
-                          {alerta.zona}
                         </td>
                       </tr>
                     ))}
