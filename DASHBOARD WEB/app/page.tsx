@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { AlertTriangle, Cloud, Droplets, Eye, Gauge, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -16,25 +17,26 @@ export default function Home() {
 
   return (
     <div className="bg-neutral-50">
-      <section className="relative text-white">
-        {/* Background image (behind everything) */}
-         <div
-          className="absolute inset-0 -z-20"
-          style={{ 
-            backgroundImage: "url('/hero/TocancipaHero.JPG')",
-            backgroundSize: 'cover',
-            backgroundPosition: 'center center',
-            backgroundRepeat: 'no-repeat'
-          }}
-        />
+      <section className="relative text-white min-h-[600px]">
+        {/* Background image usando Next.js Image */}
+        <div className="absolute inset-0">
+          <Image
+            src="/hero/TocancipaHero.jpg"
+            alt="Tocancipá - Quebrada La Esmeralda"
+            fill
+            priority
+            className="object-cover"
+            quality={90}
+          />
+        </div>
 
-        {/* Dark overlay between image and content to improve legibility */}
-        <div className="absolute inset-0 z-0 bg-black/60" />
+        {/* Dark overlay para mejorar legibilidad */}
+        <div className="absolute inset-0 bg-black/60" />
 
-        {/* Content above overlay */}
+        {/* Contenido */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm mb-6">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm mb-6">
               <Cloud className="h-10 w-10" />
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
@@ -54,7 +56,9 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-neutral-50 to-transparent"></div>
+        
+        {/* Gradiente inferior */}
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-neutral-50 to-transparent z-10"></div>
       </section>
 
       <section className="py-16 lg:py-24">
@@ -107,8 +111,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Sección 'Estado actual del sistema' eliminada */}
 
       <section className="py-16 lg:py-24 bg-gradient-to-br from-blue-50 to-neutral-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
