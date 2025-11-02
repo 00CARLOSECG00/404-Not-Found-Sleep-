@@ -296,7 +296,7 @@ sudo docker compose down
 
 ## Notas Importantes
 
-- El sistema está **completamente funcional** y no requiere modificaciones
+- El sistema está **completamente funcional** y requiere ajuste de datos del terreno donde se implementará
 - La cola actual usa almacenamiento en memoria. Para producción, considera usar Redis o RabbitMQ
 - Los umbrales de alerta están configurados en el código y pueden ajustarse según necesidades
 
