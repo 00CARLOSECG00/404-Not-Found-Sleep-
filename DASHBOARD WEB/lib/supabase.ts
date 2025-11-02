@@ -125,7 +125,7 @@ export interface Comunidad {
   comunidad_id?: number;
   nombre_completo: string;
   telefono: string;
-  rol: 'Residente' | 'Administrador' | 'Observador';
+  rol: 'Residente' | 'Centinela' | 'Admin_JAC' | 'Admin_Cabildo';
   direccion_notas?: string;
   es_arrendatario?: boolean;
   esta_activo?: boolean;

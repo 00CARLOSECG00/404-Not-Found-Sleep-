@@ -34,7 +34,7 @@ export default function SuscripcionPage() {
     correo: '',
     telefono: '',
     direccion: '',
-    rol: 'Residente' as 'Residente' | 'Administrador' | 'Observador',
+    rol: 'Residente' as 'Residente' | 'Centinela' | 'Admin_JAC' | 'Admin_Cabildo',
     es_arrendatario: false,
     consentimiento: false,
   });
@@ -55,7 +55,7 @@ export default function SuscripcionPage() {
     try {
       setLoadingList(true);
       const { data, error: supabaseError } = await supabase
-        .from('tbl_Comunidad')
+        .from('tbl_comunidad')
         .select('*')
         .eq('esta_activo', true)
         .order('created_at', { ascending: false });
@@ -97,7 +97,7 @@ export default function SuscripcionPage() {
 
     try {
       const { data, error: supabaseError } = await supabase
-        .from('tbl_Comunidad')
+        .from('tbl_comunidad')
         .insert({
           nombre_completo: formData.nombre_completo,
           telefono: formData.telefono,
@@ -145,7 +145,7 @@ export default function SuscripcionPage() {
 
     try {
       const { error: supabaseError } = await supabase
-        .from('tbl_Comunidad')
+        .from('tbl_comunidad')
         .update({ esta_activo: false })
         .eq('comunidad_id', id);
 
@@ -226,7 +226,7 @@ export default function SuscripcionPage() {
       const datosInsertar = parsedData.map(row => ({
         nombre_completo: row['nombre_completo'],
         telefono: row['telefono'],
-        rol: (row['rol'] || 'Residente') as 'Residente' | 'Administrador' | 'Observador',
+        rol: (row['rol'] || 'Residente') as 'Residente' | 'Centinela' | 'Admin_JAC' | 'Admin_Cabildo',
         direccion_notas: row['direccion_notas'] || row['direccion'] || null,
         es_arrendatario: row['es_arrendatario']?.toLowerCase() === 'true' || false,
         esta_activo: true,
@@ -239,7 +239,7 @@ export default function SuscripcionPage() {
       for (const dato of datosInsertar) {
         try {
           const { error: insertError } = await supabase
-            .from('tbl_Comunidad')
+            .from('tbl_comunidad')
             .insert(dato);
 
           if (insertError) {
@@ -378,8 +378,9 @@ export default function SuscripcionPage() {
                     className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="Residente">Residente</option>
-                    <option value="Administrador">Administrador</option>
-                    <option value="Observador">Observador</option>
+                    <option value="Centinela">Centinela</option>
+                    <option value="Admin_JAC">Admin JAC</option>
+                    <option value="Admin_Cabildo">Admin Cabildo</option>
                   </select>
                 </div>
 
@@ -522,7 +523,7 @@ export default function SuscripcionPage() {
               </h2>
 
               <AlertBanner type="info" title="Formato del archivo">
-                El archivo CSV debe contener las columnas: <strong>nombre_completo</strong>, <strong>telefono</strong> (obligatorias). Opcionales: <strong>rol</strong> (Residente/Administrador/Observador), <strong>direccion_notas</strong>, <strong>es_arrendatario</strong> (true/false)
+                El archivo CSV debe contener las columnas: <strong>nombre_completo</strong>, <strong>telefono</strong> (obligatorias). Opcionales: <strong>rol</strong> (Residente/Centinela/Admin_JAC/Admin_Cabildo), <strong>direccion_notas</strong>, <strong>es_arrendatario</strong> (true/false)
               </AlertBanner>
 
               <div className="mt-6">
