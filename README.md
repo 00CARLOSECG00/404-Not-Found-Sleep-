@@ -1,31 +1,32 @@
-## Estructura
+## Estructura del Proyecto
 
 - **cola/**: Aplicación simple de cola que recibe mensajes de medición
 - **back/**: Backend ETL que procesa datos, calcula métricas hidrológicas y envía alertas
-
-
-
-
-2. Edita `back/.env` y completa:
-   - `SUPABASE_URL`: URL de tu proyecto Supabase
-   - `SUPABASE_KEY`: Clave API de Supabase
-   - `WEBHOOK_ALERTA_URL`: URL del webhook (por defecto ya está configurada)
+- **DASHBOARD WEB/**: Dashboard web que consume datos de Supabase para visualización y gestión
 
 ## Comandos para ejecutar
 
 ### Iniciar la aplicación:
 ```bash
-docker-compose up -d
+sudo docker compose build
 ```
 
-### Detener la aplicación:
 ```bash
-docker-compose down
+sudo docker-compose up -d
 ```
 
-## Cómo llenar la cola con un mensaje
+### Detener y eliminar todo:
 
-Para enviar un mensaje a la cola, usa el siguiente comando:
+```bash
+sudo docker compose down
+```
+
+## Acceso a los servicios
+
+- **Cola**: http://localhost:5000
+- **Dashboard Web**: http://localhost:3000
+
+## Cómo llenar la cola con un mensaje en consola:
 
 ```bash
 curl -X POST http://localhost:5000/mensaje \
@@ -37,21 +38,7 @@ curl -X POST http://localhost:5000/mensaje \
   }'
 ```
 
-Ejemplo con valores diferentes:
-
-```bash
-curl -X POST http://localhost:5000/mensaje \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ts": "2025-11-01T13:15:00Z",
-    "nivel_m": 0.65,
-    "lluvia_mm": 2.3
-  }'
-```
-
-## Funciones calculadas
-
-El backend calcula las siguientes métricas:
+## Funciones calculadas:
 
 1. **BaseLevel**: Nivel base del río
 2. **ΔH**: Diferencia de altura respecto al nivel inicial
@@ -61,15 +48,12 @@ El backend calcula las siguientes métricas:
 6. **Pendiente hidráulica**: Pendiente hidráulica del tramo
 7. **Persistencia**: Número de mediciones consecutivas que superan el umbral
 
-## Alertas
+## Dashboard Web
 
-El sistema envía alertas SMS vía webhook Twilio cuando:
-- Nivel del río > 0.5m
-- Proyección a 30min > 0.6m
-- RoR > 0.1 m/hora
-- Persistencia ≥ 3
-
-## Base de datos
-
-Los datos procesados se guardan en Supabase en la tabla `mediciones_hidrologicas`. Asegúrate de crear esta tabla con los campos necesarios.
+El dashboard web incluye:
+- **Dashboard**: Visualización de gráficos con datos hidrológicos en tiempo real
+- **Alertas**: Lista de alertas generadas desde las mediciones
+- **Suscripción**: Gestión de usuarios (agregar, cargar CSV, listar)
+  - Formato CSV: `nombre_completo,telefono,rol,direccion_notas,es_arrendatario`
+  - Campos obligatorios: `nombre_completo`, `telefono`
 

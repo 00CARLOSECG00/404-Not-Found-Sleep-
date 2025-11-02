@@ -1,10 +1,11 @@
 # gateway.py
-import socket, json, time, threading, collections, os
+import socket, json, time, threading, collections, os, requests
 from datetime import datetime
 
 # ---------- CONFIG ----------
 UDP_HOST = "0.0.0.0"
 UDP_PORT = 5005
+COLA_URL = os.getenv("COLA_URL", "http://cola:5000")
 MODE_SMS = os.getenv("MODE_SMS", "SIMULATE")  # options: SIMULATE, TWILIO, GSM
 TWILIO_CONFIG = {
     "account_sid": "TWILIO_SID",
@@ -47,7 +48,7 @@ def send_sms_gsm(number, message):
     at("AT+CMGF=1")
     at(f'AT+CMGS="{number}"')
     ser.write((message + "\x1A").encode())
-    time.sleep(2)
+    time.sleep(10)
     resp = ser.read_all().decode(errors="ignore")
     print("[SMS-GSM] resp:", resp)
     ser.close()
@@ -87,6 +88,25 @@ def analyze_node(node_id):
     else:
         return "NORMAL"
 
+def enviar_a_cola(ts_str, nivel_m, lluvia_mm):
+    """Envía los datos a la cola en el formato esperado"""
+    try:
+        payload = {
+            "ts": ts_str,
+            "nivel_m": nivel_m,
+            "lluvia_mm": lluvia_mm
+        }
+        response = requests.post(f"{COLA_URL}/mensaje", json=payload, timeout=2)
+        if response.status_code in [200, 201]:
+            print(f"[COLA] ✓ Datos enviados: {nivel_m}m, {lluvia_mm}mm")
+            return True
+        else:
+            print(f"[COLA] ✗ Error {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        print(f"[COLA] ✗ Error enviando a cola: {e}")
+        return False
+
 def maybe_alert(node_id):
     status = analyze_node(node_id)
     print(f"[ANALYZER] Nodo {node_id} -> {status}")
@@ -113,10 +133,14 @@ def receiver():
             nivel_m = float(j.get("nivel_m", 0))
             lluvia_mm = float(j.get("lluvia_mm", 0))
             
+            # Asegurar que ts_str esté en formato ISO
+            if not ts_str:
+                ts_str = datetime.utcnow().isoformat() + "Z"
+            
             # convertir ts a timestamp Unix para análisis de slope
-            if ts_str:
-                ts = datetime.fromisoformat(ts_str).timestamp()
-            else:
+            try:
+                ts = datetime.fromisoformat(ts_str.replace('Z', '+00:00')).timestamp()
+            except:
                 ts = time.time()
             
             with lock:
@@ -124,6 +148,11 @@ def receiver():
                 buf.append((ts, nivel_m))
             
             print(f"[RX] {node} @ {ts_str} -> {nivel_m} m, lluvia: {lluvia_mm} mm")
+            
+            # Enviar datos a la cola
+            threading.Thread(target=enviar_a_cola, args=(ts_str, nivel_m, lluvia_mm)).start()
+            
+            # Analizar para alertas
             threading.Thread(target=maybe_alert, args=(node,)).start()
         except Exception as e:
             print("Error parseando paquete:", e)

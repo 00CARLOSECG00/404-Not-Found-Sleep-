@@ -1,9 +1,9 @@
 # sensor_simulator.py
-import time, random, socket, json
+import time, random, socket, json, os
 from datetime import datetime, timezone
 
-HOST = '127.0.0.1'
-PORT = 5005
+HOST = os.getenv('HOST', '127.0.0.1')
+PORT = int(os.getenv('PORT', '5005'))
 
 def make_payload(node_id, level_cm, lluvia_mm):
     return json.dumps({
@@ -35,8 +35,8 @@ def run_simulation():
         for n in nodes:
             payload = make_payload(n, level + random.uniform(-1,1), lluvia)
             sock.sendto(payload.encode(), (HOST, PORT))
-        time.sleep(1)  # enviar cada 1s
+            time.sleep(2)  # esperar 2 segundos entre cada envío de mensaje
 
 if __name__ == "__main__":
-    print("Iniciando simulador (envía UDP a 127.0.0.1:5005)...")
+    print(f"Iniciando simulador (envía UDP a {HOST}:{PORT})...")
     run_simulation()

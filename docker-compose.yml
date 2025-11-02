@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   cola:
     build:
@@ -20,6 +18,53 @@ services:
       - ./back/.env
     depends_on:
       - cola
+    networks:
+      - red_hidrologia
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./DASHBOARD WEB
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    container_name: dashboard
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./DASHBOARD WEB/.env
+    networks:
+      - red_hidrologia
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./simulacion
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "5005:5005/udp"
+    environment:
+      - COLA_URL=http://cola:5000
+      - MODE_SMS=${MODE_SMS:-SIMULATE}
+    depends_on:
+      - cola
+    networks:
+      - red_hidrologia
+    restart: unless-stopped
+
+  sensor:
+    build:
+      context: ./simulacion
+      dockerfile: Dockerfile
+    container_name: sensor
+    command: python sensor_simulator.py
+    environment:
+      - HOST=gateway
+      - PORT=5005
+    depends_on:
+      - gateway
     networks:
       - red_hidrologia
     restart: unless-stopped

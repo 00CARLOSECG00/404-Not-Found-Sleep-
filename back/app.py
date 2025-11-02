@@ -1,6 +1,3 @@
-"""
-Aplicación backend ETL para procesar datos de medición hidrológica
-"""
 import os
 import time
 import requests
@@ -21,7 +18,7 @@ DATOS_RIO = {
 
 # URLs de servicios
 COLA_URL = os.getenv('COLA_URL', 'http://cola:5000')
-WEBHOOK_ALERTA_URL = os.getenv('WEBHOOK_ALERTA_URL', 'https://testsh.app.n8n.cloud/webhook-test/webhook-alerta-esmeralda')
+WEBHOOK_ALERTA_URL = os.getenv('WEBHOOK_ALERTA_URL', 'https://testsh.app.n8n.cloud/webhook/webhook-alerta-esmeralda')
 
 # Configuración Supabase
 SUPABASE_URL = os.getenv('SUPABASE_URL', '')
@@ -36,23 +33,12 @@ class HidrologiaProcessor:
         self.mediciones_previas: List[Dict] = []
     
     def base_level(self, nivel_m: float) -> float:
-        """
-        Nivel base del río
-        """
         return nivel_m
     
     def delta_h(self, nivel_m: float) -> float:
-        """
-        Diferencia de altura (ΔH) respecto al nivel base
-        Calculado como la diferencia entre el nivel actual y el nivel inicial del tramo
-        """
         return nivel_m - DATOS_RIO["altura_inicial_m"]
     
     def rate_of_rise(self, medicion_actual: Dict, medicion_anterior: Optional[Dict]) -> Optional[float]:
-        """
-        RoR: Tasa de incremento del nivel (Rate of Rise)
-        Calcula cuánto sube el nivel por hora
-        """
         if not medicion_anterior:
             return None
         
@@ -74,9 +60,6 @@ class HidrologiaProcessor:
             return None
     
     def intensidad_lluvia(self, medicion_actual: Dict, medicion_anterior: Optional[Dict]) -> Optional[float]:
-        """
-        Intensidad de lluvia (mm/hora)
-        """
         if not medicion_anterior:
             return None
         
@@ -98,9 +81,6 @@ class HidrologiaProcessor:
             return None
     
     def proyeccion_30min(self, nivel_m: float, ror: Optional[float]) -> Optional[float]:
-        """
-        Proyección del nivel a 30 minutos
-        """
         if ror is None:
             return None
         
@@ -110,11 +90,6 @@ class HidrologiaProcessor:
         return nivel_proyectado
     
     def pendiente_hidraulica(self, nivel_m: float) -> float:
-        """
-        Pendiente hidráulica del tramo
-        S = (H_inicial - H_final) / L
-        donde H_inicial es la altura del agua actual y H_final es la cota aguas abajo
-        """
         altura_agua_arriba = DATOS_RIO["altura_inicial_m"] + nivel_m
         altura_agua_abajo = DATOS_RIO["altura_final_m"]
         
@@ -124,9 +99,6 @@ class HidrologiaProcessor:
         return pendiente
     
     def persistencia(self, medicion_actual: Dict, umbral_alerta: float = 0.5) -> int:
-        """
-        Persistencia: número de mediciones consecutivas que superan un umbral
-        """
         if medicion_actual['nivel_m'] <= umbral_alerta:
             return 0
         
@@ -140,9 +112,6 @@ class HidrologiaProcessor:
         return persistencia
     
     def procesar_medicion(self, medicion: Dict) -> Dict:
-        """
-        Procesa una medición y calcula todos los parámetros
-        """
         nivel_m = medicion['nivel_m']
         
         # Buscar medición anterior
@@ -182,14 +151,6 @@ class HidrologiaProcessor:
         return resultado
     
     def evaluar_alerta(self, resultado: Dict) -> bool:
-        """
-        Evalúa si hay condiciones de alerta
-        Alertas si:
-        - Nivel muy alto (> 0.5m)
-        - Proyección a 30min indica nivel alto
-        - RoR muy alto (> 0.1 m/hora)
-        - Persistencia alta (> 3)
-        """
         nivel = resultado['nivel_m']
         proyeccion = resultado.get('proyeccion_30min')
         ror = resultado.get('ror')
@@ -217,68 +178,55 @@ class HidrologiaProcessor:
     
     def enviar_alerta(self, resultado: Dict) -> bool:
         """
-        Envía alerta via webhook n8n
+        Envía alerta via webhook de n8n
         """
         try:
-            # Determinar color según severidad
-            nivel = resultado["nivel_m"]
-            if nivel > 0.7:
+            # Extraer valores del resultado
+            nivel_m = resultado.get('nivel_m', 0)
+            ror = resultado.get('ror')
+            persistencia = resultado.get('persistencia', 0)
+            proyeccion_30min = resultado.get('proyeccion_30min')
+            
+            # Calcular riesgo
+            riesgo = (
+                (nivel_m * 0.6) +                 
+                (min(ror or 0, 0.2) * 2.0) +    
+                ((persistencia or 0) * 0.05) +  
+                (0.1 if (proyeccion_30min and proyeccion_30min > 0.6) else 0.0)
+            )
+            
+            # Determinar color de alerta
+            if riesgo >= 0.9:
                 color = "ROJA"
-            elif nivel > 0.5:
+            elif riesgo >= 0.6:
                 color = "AMARILLA"
             else:
                 color = "VERDE"
-
+            
+            # Solo enviar alerta si es ROJA o AMARILLA
+            if color == "VERDE":
+                print(f"⏭️  Nivel VERDE - No se envía alerta")
+                return True
+            
             payload = {"nivel_alerta": color}
-
+            
             response = requests.post(
                 WEBHOOK_ALERTA_URL,
                 json=payload,
                 timeout=10
             )
-
+            
             if response.status_code in [200, 201, 202]:
                 print(f"✅ Alerta enviada exitosamente: {payload}")
                 return True
             else:
                 print(f"⚠️ Error enviando alerta: {response.status_code} - {response.text}")
                 return False
-
+                
         except Exception as e:
             print(f"❌ Error enviando alerta: {e}")
             return False
-
-        """
-        Envía alerta via webhook de Twilio
-        """
-        try:
-            payload = {
-                "alerta": "posible_inundacion",
-                "timestamp": resultado['ts'],
-                "nivel_m": resultado['nivel_m'],
-                "proyeccion_30min": resultado.get('proyeccion_30min'),
-                "ror": resultado.get('ror'),
-                "persistencia": resultado.get('persistencia'),
-                "mensaje": f"ALERTA: Nivel del río en {resultado['nivel_m']:.2f}m. Proyección a 30min: {resultado.get('proyeccion_30min', 'N/A')}"
-            }
-            
-            response = requests.post(
-                WEBHOOK_ALERTA_URL,
-                json=payload,
-                timeout=10
-            )
-            
-            if response.status_code in [200, 201, 202]:
-                print(f"Alerta enviada exitosamente: {payload}")
-                return True
-            else:
-                print(f"Error enviando alerta: {response.status_code} - {response.text}")
-                return False
-                
-        except Exception as e:
-            print(f"Error enviando alerta: {e}")
-            return False
-    
+        
     def guardar_supabase(self, resultado: Dict) -> bool:
         """
         Guarda el resultado procesado en Supabase
@@ -288,16 +236,25 @@ class HidrologiaProcessor:
             return False
         
         try:
+            # Función helper para limitar valores numéricos a precision 8, scale 4
+            # (máximo absoluto: 9999.9999)
+            def limitar_valor(valor, max_abs=9999.9999):
+                if valor is None:
+                    return None
+                if abs(valor) > max_abs:
+                    return max_abs if valor > 0 else -max_abs
+                return valor
+            
             data = {
                 "ts": resultado['ts'],
-                "nivel_m": resultado['nivel_m'],
-                "lluvia_mm": resultado['lluvia_mm'],
-                "base_level": resultado['base_level'],
-                "delta_h": resultado['delta_h'],
-                "ror": resultado['ror'],
-                "intensidad_lluvia": resultado['intensidad_lluvia'],
-                "proyeccion_30min": resultado['proyeccion_30min'],
-                "pendiente_hidraulica": resultado['pendiente_hidraulica'],
+                "nivel_m": limitar_valor(resultado['nivel_m']),
+                "lluvia_mm": limitar_valor(resultado['lluvia_mm']),
+                "base_level": limitar_valor(resultado['base_level']),
+                "delta_h": limitar_valor(resultado['delta_h']),
+                "ror": limitar_valor(resultado['ror']),
+                "intensidad_lluvia": limitar_valor(resultado['intensidad_lluvia']),
+                "proyeccion_30min": limitar_valor(resultado['proyeccion_30min']),
+                "pendiente_hidraulica": limitar_valor(resultado['pendiente_hidraulica']),
                 "persistencia": resultado['persistencia'],
                 "procesado_en": resultado['procesado_en']
             }
@@ -313,7 +270,6 @@ class HidrologiaProcessor:
 
 
 def consumir_cola():
-    """Consume mensajes de la cola"""
     try:
         response = requests.post(f"{COLA_URL}/consumir", timeout=5)
         
@@ -332,7 +288,6 @@ def consumir_cola():
 
 
 def main():
-    """Función principal del ETL"""
     print("Iniciando ETL de datos hidrológicos...")
     
     # Inicializar Supabase si está configurado
