@@ -25,6 +25,28 @@ export default function Navbar({ isAuthenticated = false, onLogout }: NavbarProp
     }
   }, []);
 
+  // Escuchar cambios de autenticación emitidos desde otras partes de la app.
+  // Usamos un evento personalizado ('authChanged') para notificar cambios en la misma ventana
+  // y también escuchamos el evento 'storage' para cambios entre pestañas.
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const val = localStorage.getItem('isAuthenticated') === 'true';
+        setIsLoggedIn(val);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('storage', handler);
+    window.addEventListener('authChanged', handler as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handler);
+      window.removeEventListener('authChanged', handler as EventListener);
+    };
+  }, []);
+
   const publicLinks = [
     { href: '/', label: 'Inicio' },
     { href: '/alertas', label: 'Alertas' },
@@ -73,6 +95,8 @@ export default function Navbar({ isAuthenticated = false, onLogout }: NavbarProp
                 <button
                   onClick={() => {
                     try { localStorage.removeItem('isAuthenticated'); } catch (e) {}
+                    // notificar a la app que cambió el estado de autenticación
+                    try { window.dispatchEvent(new Event('authChanged')); } catch (e) {}
                     setIsLoggedIn(false);
                     onLogout?.();
                     router.push('/');
@@ -131,6 +155,7 @@ export default function Navbar({ isAuthenticated = false, onLogout }: NavbarProp
                 <button
                   onClick={() => {
                     try { localStorage.removeItem('isAuthenticated'); } catch (e) {}
+                    try { window.dispatchEvent(new Event('authChanged')); } catch (e) {}
                     setIsLoggedIn(false);
                     onLogout?.();
                     setIsMenuOpen(false);

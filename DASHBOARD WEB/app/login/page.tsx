@@ -34,6 +34,8 @@ export default function LoginPage() {
       // Marcar sesión como autenticada en el almacenamiento local para que la Navbar la detecte
       try {
         localStorage.setItem('isAuthenticated', 'true');
+        // notificar a otros componentes en la misma ventana
+        window.dispatchEvent(new Event('authChanged'));
       } catch (e) {
         // si localStorage no está disponible, ignorar
       }
