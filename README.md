@@ -278,12 +278,12 @@ sudo docker compose down
 
 ## Características del Sistema
 
+✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase  
 ✅ **Monitoreo en Tiempo Real**: Datos actualizados cada 30 segundos en el dashboard  
 ✅ **Cálculo de Métricas Avanzadas**: 7 métricas hidrológicas diferentes  
 ✅ **Sistema de Alertas Automático**: Detección y notificación de condiciones de riesgo  
 ✅ **Visualización Interactiva**: Gráficos en tiempo real con Recharts  
 ✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones 
-✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase  
 ✅ **Asíncrono**: No requiere una conexión de red constante o estable. Los mensajes se almacenan en colas, lo que permite que se procesen de manera independiente y en diferentes momentos
 
 
