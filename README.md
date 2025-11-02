@@ -255,7 +255,7 @@ sudo docker compose down
 │   ├── gateway.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── cola/                # Servicio de cola HTTP
+├── cola/                # Servicio de cola
 │   ├── app.py
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -282,9 +282,10 @@ sudo docker compose down
 ✅ **Cálculo de Métricas Avanzadas**: 7 métricas hidrológicas diferentes  
 ✅ **Sistema de Alertas Automático**: Detección y notificación de condiciones de riesgo  
 ✅ **Visualización Interactiva**: Gráficos en tiempo real con Recharts  
-✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones  
-✅ **Asíncrono**: No requiere una conexión de red constante o estable. Los mensajes se almacenan en colas, lo que permite que se procesen de manera independiente y en diferentes momentos
+✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones 
 ✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase  
+✅ **Asíncrono**: No requiere una conexión de red constante o estable. Los mensajes se almacenan en colas, lo que permite que se procesen de manera independiente y en diferentes momentos
+
 
 ---
 
