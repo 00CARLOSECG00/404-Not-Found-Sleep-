@@ -17,11 +17,7 @@ Sistema de monitoreo hidrológico en tiempo real para la protección de la comun
 
 ### Flujo de Datos
 
-```
-[Sensor Simulator] → [Gateway UDP] → [Cola HTTP] → [Backend ETL] → [Supabase] → [Dashboard Web]
-                                                        ↓
-                                                  [Sistema de Alertas]
-```
+<img width="1171" height="144" alt="image" src="https://github.com/user-attachments/assets/aa92ff71-9418-40e4-bbd5-b9f4e9497116" />
 
 ---
 
