@@ -217,6 +217,38 @@ class HidrologiaProcessor:
     
     def enviar_alerta(self, resultado: Dict) -> bool:
         """
+        Envía alerta via webhook n8n
+        """
+        try:
+            # Determinar color según severidad
+            nivel = resultado["nivel_m"]
+            if nivel > 0.7:
+                color = "ROJA"
+            elif nivel > 0.5:
+                color = "AMARILLA"
+            else:
+                color = "VERDE"
+
+            payload = {"nivel_alerta": color}
+
+            response = requests.post(
+                WEBHOOK_ALERTA_URL,
+                json=payload,
+                timeout=10
+            )
+
+            if response.status_code in [200, 201, 202]:
+                print(f"✅ Alerta enviada exitosamente: {payload}")
+                return True
+            else:
+                print(f"⚠️ Error enviando alerta: {response.status_code} - {response.text}")
+                return False
+
+        except Exception as e:
+            print(f"❌ Error enviando alerta: {e}")
+            return False
+
+        """
         Envía alerta via webhook de Twilio
         """
         try:
