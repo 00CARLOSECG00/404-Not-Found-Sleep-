@@ -17,11 +17,7 @@ Sistema de monitoreo hidrológico en tiempo real para la protección de la comun
 
 ### Flujo de Datos
 
-```
-[Sensor Simulator] → [Gateway UDP] → [Cola HTTP] → [Backend ETL] → [Supabase] → [Dashboard Web]
-                                                        ↓
-                                                  [Sistema de Alertas]
-```
+<img width="1171" height="144" alt="image" src="https://github.com/user-attachments/assets/aa92ff71-9418-40e4-bbd5-b9f4e9497116" />
 
 ---
 
@@ -30,67 +26,19 @@ Sistema de monitoreo hidrológico en tiempo real para la protección de la comun
 El sistema está compuesto por 4 módulos principales que trabajan en conjunto:
 
 1. **Simulación** (`simulacion/`): Simula sensores que envían datos vía UDP y un gateway que los recibe
-2. **Cola** (`cola/`): Servicio de cola HTTP que almacena mensajes temporalmente
+2. **Cola** (`cola/`): Servicio de cola que almacena mensajes temporalmente
 3. **Backend ETL** (`back/`): Procesa datos, calcula métricas, envía alertas y guarda en Supabase
-4. **Dashboard Web** (`DASHBOARD WEB/`): Interfaz web Next.js para visualización y gestión
+4. **Dashboard Web** (`DASHBOARD WEB/`): Interfaz web para visualización, gestión y registro de números telefónicos 
 
 ---
 
-Aplicación web moderna construida con Next.js 13, TypeScript y Tailwind CSS que proporciona visualización en tiempo real y gestión del sistema.
 
 #### Tecnologías
 
 - **Framework**: Next.js 13.5.1
-- **Lenguaje**: TypeScript
-- **Estilos**: Tailwind CSS
+- **Lenguaje**: TypeScript, python
 - **UI Components**: Radix UI
-- **Gráficos**: Recharts
 - **Base de Datos**: Supabase (cliente JS)
-
-#### Páginas Principales
-
-1. **Página Principal (`/`)**: 
-   - Landing page con información del sistema
-   - Sección "Yaku" explicando el nombre
-   - Cómo funciona el sistema
-   - Enlaces a otras secciones
-
-2. **Dashboard (`/app/dashboard`)**:
-   - Métricas principales (nivel, lluvia, RoR, etc.)
-   - Tarjetas de resumen con última medición
-   - Actualización automática cada 30 segundos
-   - Gráficos de línea para todas las métricas
-
-3. **Alertas (`/app/alertas`)**:
-   - Lista completa de alertas generadas
-   - Filtros por severidad
-   - Información detallada de cada alerta
-   - Integración con base de datos de Supabase
-
-4. **Alertas Públicas (`/alertas`)**:
-   - Vista pública de alertas activas
-
-5. **Suscripción (`/app/suscripcion`)**:
-   - Gestión de usuarios suscritos
-   - Agregar usuario manualmente
-   - Carga masiva desde CSV
-   - Lista de usuarios suscritos
-   - Formato CSV: `nombre_completo,telefono,rol,direccion_notas,es_arrendatario`
-   - Campos obligatorios: `nombre_completo`, `telefono`
-
-6. **Educación (`/educacion`)**:
-   - Información educativa sobre alertas
-   - Cómo interpretar las métricas
-   - Qué hacer en cada situación
-
-7. **Contacto (`/contacto`)**:
-   - Información de contacto
-   - Formulario de contacto
-
-8. **Login (`/login`)**:
-   - Autenticación simple para acceso al dashboard
-   - Almacenamiento en supabase
-
 
 #### Configuración
 
@@ -206,25 +154,6 @@ sudo docker compose down
 
 ---
 
-
-```json
-{
-  "ts": "2025-11-01T12:10:00Z",
-  "nivel_m": 0.42,
-  "lluvia_mm": 1.6,
-  "base_level": 0.42,
-  "delta_h": -2595.0,
-  "ror": 0.05,
-  "intensidad_lluvia": 3.2,
-  "proyeccion_30min": 0.445,
-  "pendiente_hidraulica": 0.0018125,
-  "persistencia": 0,
-  "procesado_en": "2025-11-01T12:10:10Z"
-}
-```
-
----
-
 ## Métricas Hidrológicas Calculadas
 
 ### 1. BaseLevel
@@ -281,7 +210,7 @@ sudo docker compose down
 │   ├── gateway.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── cola/                # Servicio de cola HTTP
+├── cola/                # Servicio de cola
 │   ├── app.py
 │   ├── requirements.txt
 │   └── Dockerfile
@@ -304,24 +233,27 @@ sudo docker compose down
 
 ## Características del Sistema
 
-✅ **Monitoreo en Tiempo Real**: Datos actualizados cada 30 segundos en el dashboard  
-✅ **Cálculo de Métricas Avanzadas**: 7 métricas hidrológicas diferentes  
-✅ **Sistema de Alertas Automático**: Detección y notificación de condiciones de riesgo  
-✅ **Visualización Interactiva**: Gráficos en tiempo real con Recharts  
-✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones  
-✅ **Arquitectura Modular**: Componentes independientes y escalables  
-✅ **Dockerizado**: Fácil despliegue con Docker Compose  
-✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase  
+- ✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase.
+
+- ✅ **Monitoreo en Tiempo Real**: Datos actualizados cada 30 segundos en el dashboard.
+
+- ✅ **Cálculo de Métricas Avanzadas**: 7 métricas hidrológicas diferentes.
+
+- ✅ **Sistema de Alertas Automático**: Detección y notificación de condiciones de riesgo.
+
+- ✅ **Visualización Interactiva**: Gráficos en tiempo real con Recharts.
+
+- ✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones.
+
+- ✅ **Asíncrono**: No requiere una conexión de red constante o estable. Los mensajes se almacenan en colas, lo que permite que se procesen de manera independiente y en diferentes momentos.
 
 ---
 
 ## Notas Importantes
 
-- El sistema está **completamente funcional** y no requiere modificaciones
+- El sistema está **completamente funcional** y requiere ajuste de datos del terreno donde se implementará
 - La cola actual usa almacenamiento en memoria. Para producción, considera usar Redis o RabbitMQ
-- El gateway soporta 3 modos de SMS: SIMULATE (para desarrollo), TWILIO y GSM (para producción)
 - Los umbrales de alerta están configurados en el código y pueden ajustarse según necesidades
-- El dashboard requiere autenticación para acceder a las secciones administrativas (`/app/*`)
 
 ---
 
@@ -376,10 +308,7 @@ La **estructura física (instalación real de sensores y hub LoRa)** aún no se 
 
 ### Lenguajes y tecnologías  
 - **Framework:** Next.js 13.5.1  
-- **Lenguaje:** TypeScript  
-- **Estilos:** Tailwind CSS  
-- **Componentes UI:** Radix UI  
-- **Gráficos:** Recharts  
+- **Lenguaje:** TypeScript 
 - **Base de Datos:** Supabase  
 - **Automatización de flujos:** n8n  
 - **API de mensajería:** Twilio (WhatsApp/SMS)  
