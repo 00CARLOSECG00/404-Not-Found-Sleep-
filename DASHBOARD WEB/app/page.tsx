@@ -19,7 +19,7 @@ export default function Home() {
     <div className="bg-neutral-50">
       <section className="relative text-white min-h-[600px]">
         {/* Background image usando Next.js Image */}
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 z-0">
           <Image
             src="/hero/TocancipaHero.jpg"
             alt="Tocancipá - Quebrada La Esmeralda"
@@ -31,10 +31,10 @@ export default function Home() {
         </div>
 
         {/* Dark overlay para mejorar legibilidad */}
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="absolute inset-0 z-10 bg-black/60" />
 
         {/* Contenido */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+        <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm mb-6">
               <Cloud className="h-10 w-10" />
