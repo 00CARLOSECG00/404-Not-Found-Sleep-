@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  cola:
+    build:
+      context: ./cola
+      dockerfile: Dockerfile
+    container_name: cola
+    ports:
+      - "5000:5000"
+    networks:
+      - red_hidrologia
+
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: back
+    env_file:
+      - ./back/.env
+    depends_on:
+      - cola
+    networks:
+      - red_hidrologia
+    restart: unless-stopped
+
+networks:
+  red_hidrologia:
+    driver: bridge
+
