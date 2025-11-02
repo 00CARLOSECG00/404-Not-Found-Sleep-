@@ -1,59 +1,337 @@
-## Estructura del Proyecto
+# Sistema de Alerta Temprana (SAT) - Yaku
 
-- **cola/**: Aplicación simple de cola que recibe mensajes de medición
-- **back/**: Backend ETL que procesa datos, calcula métricas hidrológicas y envía alertas
-- **DASHBOARD WEB/**: Dashboard web que consume datos de Supabase para visualización y gestión
+Sistema de monitoreo hidrológico en tiempo real para la protección de la comunidad de Tocancipá ante crecientes de la quebrada La Esmeralda.
 
-## Comandos para ejecutar
+## 📋 Tabla de Contenidos
 
-### Iniciar la aplicación:
-```bash
-sudo docker compose build
+- [Descripción General](#descripción-general)
+- [Arquitectura del Sistema](#arquitectura-del-sistema)
+- [Configuración](#configuración)
+- [Instalación y Ejecución](#instalación-y-ejecución)
+- [Métricas Hidrológicas Calculadas](#métricas-hidrológicas-calculadas)
+---
+
+## Descripción General
+
+**Yaku** (que significa "agua" en lengua indígena Quechua) es un sistema completo de alerta temprana que monitorea continuamente el nivel del agua y la precipitación en la quebrada La Esmeralda. El sistema procesa datos de sensores, calcula métricas hidrológicas avanzadas, detecta condiciones de riesgo y genera alertas automáticas para proteger a la comunidad.
+
+### Flujo de Datos
+
+```
+[Sensor Simulator] → [Gateway UDP] → [Cola HTTP] → [Backend ETL] → [Supabase] → [Dashboard Web]
+                                                        ↓
+                                                  [Sistema de Alertas]
 ```
 
-```bash
-sudo docker-compose up -d
+---
+
+## Arquitectura del Sistema
+
+El sistema está compuesto por 4 módulos principales que trabajan en conjunto:
+
+1. **Simulación** (`simulacion/`): Simula sensores que envían datos vía UDP y un gateway que los recibe
+2. **Cola** (`cola/`): Servicio de cola HTTP que almacena mensajes temporalmente
+3. **Backend ETL** (`back/`): Procesa datos, calcula métricas, envía alertas y guarda en Supabase
+4. **Dashboard Web** (`DASHBOARD WEB/`): Interfaz web Next.js para visualización y gestión
+
+---
+
+Aplicación web moderna construida con Next.js 13, TypeScript y Tailwind CSS que proporciona visualización en tiempo real y gestión del sistema.
+
+#### Tecnologías
+
+- **Framework**: Next.js 13.5.1
+- **Lenguaje**: TypeScript
+- **Estilos**: Tailwind CSS
+- **UI Components**: Radix UI
+- **Gráficos**: Recharts
+- **Base de Datos**: Supabase (cliente JS)
+
+#### Páginas Principales
+
+1. **Página Principal (`/`)**: 
+   - Landing page con información del sistema
+   - Sección "Yaku" explicando el nombre
+   - Cómo funciona el sistema
+   - Enlaces a otras secciones
+
+2. **Dashboard (`/app/dashboard`)**:
+   - Métricas principales (nivel, lluvia, RoR, etc.)
+   - Tarjetas de resumen con última medición
+   - Actualización automática cada 30 segundos
+   - Gráficos de línea para todas las métricas
+
+3. **Alertas (`/app/alertas`)**:
+   - Lista completa de alertas generadas
+   - Filtros por severidad
+   - Información detallada de cada alerta
+   - Integración con base de datos de Supabase
+
+4. **Alertas Públicas (`/alertas`)**:
+   - Vista pública de alertas activas
+
+5. **Suscripción (`/app/suscripcion`)**:
+   - Gestión de usuarios suscritos
+   - Agregar usuario manualmente
+   - Carga masiva desde CSV
+   - Lista de usuarios suscritos
+   - Formato CSV: `nombre_completo,telefono,rol,direccion_notas,es_arrendatario`
+   - Campos obligatorios: `nombre_completo`, `telefono`
+
+6. **Educación (`/educacion`)**:
+   - Información educativa sobre alertas
+   - Cómo interpretar las métricas
+   - Qué hacer en cada situación
+
+7. **Contacto (`/contacto`)**:
+   - Información de contacto
+   - Formulario de contacto
+
+8. **Login (`/login`)**:
+   - Autenticación simple para acceso al dashboard
+   - Almacenamiento en supabase
+
+
+#### Configuración
+
+El dashboard requiere las siguientes variables de entorno:
+
+- `NEXT_PUBLIC_SUPABASE_URL`: URL de tu instancia de Supabase
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Clave anónima de Supabase
+
+---
+
+## Configuración
+
+### Base de Datos Supabase
+
+Antes de ejecutar el sistema, necesitas configurar Supabase y crear las tablas necesarias:
+
+#### 1. Tabla de Mediciones (`mediciones_hidrologicas`)
+
+Ejecuta el script `back/schema.sql` en el SQL Editor de Supabase:
+
+```sql
+CREATE TABLE IF NOT EXISTS mediciones_hidrologicas (
+    id BIGSERIAL PRIMARY KEY,
+    ts TIMESTAMPTZ NOT NULL,
+    nivel_m DECIMAL(10, 2) NOT NULL,
+    lluvia_mm DECIMAL(10, 2) NOT NULL,
+    base_level DECIMAL(10, 2),
+    delta_h DECIMAL(10, 2),
+    ror DECIMAL(10, 4),
+    intensidad_lluvia DECIMAL(10, 2),
+    proyeccion_30min DECIMAL(10, 2),
+    pendiente_hidraulica DECIMAL(10, 6),
+    persistencia INTEGER,
+    procesado_en TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
-### Detener y eliminar todo:
+#### 2. Tabla de Comunidad (`tbl_Comunidad`)
+
+Ejecuta el script `DASHBOARD WEB/schema.sql` en el SQL Editor de Supabase:
+
+```sql
+CREATE TABLE IF NOT EXISTS tbl_Comunidad (
+    comunidad_id SERIAL PRIMARY KEY,
+    nombre_completo VARCHAR(255) NOT NULL,
+    telefono VARCHAR(20) UNIQUE NOT NULL,
+    rol enum_rol_comunidad DEFAULT 'Residente',
+    direccion_notas TEXT,
+    es_arrendatario BOOLEAN DEFAULT false,
+    esta_activo BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+---
+
+## Instalación y Ejecución
+
+### Prerrequisitos
+
+- Docker y Docker Compose instalados
+- Cuenta de Supabase configurada
+- Variables de entorno configuradas
+
+### Pasos de Instalación
+
+1. **Configurar variables de entorno**
+
+   Crea un archivo `.env` en `back/` con:
+   ```env
+   SUPABASE_URL=tu_supabase_url
+   SUPABASE_KEY=tu_supabase_service_key
+   COLA_URL=http://cola:5000
+   WEBHOOK_ALERTA_URL=tu_webhook_url
+   ```
+
+   Crea un archivo `.env` en `DASHBOARD WEB/` con:
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
+   ```
+
+2. **Construir contenedores Docker**
+
+   ```bash
+   sudo docker compose build
+   ```
+
+3. **Iniciar servicios**
+
+   ```bash
+   sudo docker-compose up -d
+   ```
+
+   Esto iniciará todos los servicios:
+   - `sensor`: Simulador de sensores
+   - `gateway`: Gateway UDP que recibe datos
+   - `cola`: Servicio de cola HTTP (puerto 5000)
+   - `back`: Backend ETL que procesa datos
+   - `dashboard`: Dashboard web (puerto 3000)
+
+4. **Verificar que todo está funcionando**
+
+   - Cola: http://localhost:5000/health
+   - Dashboard: http://localhost:3000
+
+### Detener Servicios
 
 ```bash
 sudo docker compose down
 ```
 
-## Acceso a los servicios
+---
 
-- **Cola**: http://localhost:5000
-- **Dashboard Web**: http://localhost:3000
 
-## Cómo llenar la cola con un mensaje en consola:
-
-```bash
-curl -X POST http://localhost:5000/mensaje \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ts": "2025-11-01T12:10:00Z",
-    "nivel_m": 0.42,
-    "lluvia_mm": 1.6
-  }'
+```json
+{
+  "ts": "2025-11-01T12:10:00Z",
+  "nivel_m": 0.42,
+  "lluvia_mm": 1.6,
+  "base_level": 0.42,
+  "delta_h": -2595.0,
+  "ror": 0.05,
+  "intensidad_lluvia": 3.2,
+  "proyeccion_30min": 0.445,
+  "pendiente_hidraulica": 0.0018125,
+  "persistencia": 0,
+  "procesado_en": "2025-11-01T12:10:10Z"
+}
 ```
 
-## Funciones calculadas:
+---
 
-1. **BaseLevel**: Nivel base del río
-2. **ΔH**: Diferencia de altura respecto al nivel inicial
-3. **RoR**: Tasa de incremento del nivel (Rate of Rise) en m/hora
-4. **Intensidad de lluvia**: Intensidad de lluvia en mm/hora
-5. **Proyección a 30 min**: Proyección del nivel del río en 30 minutos
-6. **Pendiente hidráulica**: Pendiente hidráulica del tramo
-7. **Persistencia**: Número de mediciones consecutivas que superan el umbral
+## Métricas Hidrológicas Calculadas
 
-## Dashboard Web
+### 1. BaseLevel
+**Descripción**: Nivel base del río  
+**Cálculo**: `base_level = nivel_m`  
+**Unidad**: metros (m)
 
-El dashboard web incluye:
-- **Dashboard**: Visualización de gráficos con datos hidrológicos en tiempo real
-- **Alertas**: Lista de alertas generadas desde las mediciones
-- **Suscripción**: Gestión de usuarios (agregar, cargar CSV, listar)
-  - Formato CSV: `nombre_completo,telefono,rol,direccion_notas,es_arrendatario`
-  - Campos obligatorios: `nombre_completo`, `telefono`
+### 2. ΔH (Delta H)
+**Descripción**: Diferencia de altura respecto al nivel inicial  
+**Cálculo**: `delta_h = nivel_m - altura_inicial_m`  
+**Unidad**: metros (m)  
+**Valor de referencia**: `altura_inicial_m = 2595.4m`
 
+### 3. RoR (Rate of Rise)
+**Descripción**: Tasa de incremento del nivel del río  
+**Cálculo**: `ror = (nivel_actual - nivel_anterior) / delta_tiempo`  
+**Unidad**: metros por hora (m/hora)  
+**Interpretación**: Valores positivos indican crecida, negativos indican descenso
+
+### 4. Intensidad de Lluvia
+**Descripción**: Intensidad de precipitación  
+**Cálculo**: `intensidad = lluvia_mm / delta_tiempo`  
+**Unidad**: milímetros por hora (mm/hora)
+
+### 5. Proyección a 30 min
+**Descripción**: Proyección del nivel del río en 30 minutos  
+**Cálculo**: `proyeccion_30min = nivel_actual + (ror * 0.5)`  
+**Unidad**: metros (m)  
+**Uso**: Predicción de nivel futuro para evaluación de riesgo
+
+### 6. Pendiente Hidráulica
+**Descripción**: Pendiente hidráulica del tramo del río  
+**Cálculo**: `pendiente = (altura_agua_arriba - altura_agua_abajo) / largo_rio`  
+**Unidad**: adimensional  
+**Fórmula completa**:
+- `altura_agua_arriba = altura_inicial_m + nivel_m`
+- `altura_agua_abajo = altura_final_m`
+- `pendiente = (altura_agua_arriba - altura_agua_abajo) / largo_rio_m`
+
+### 7. Persistencia
+**Descripción**: Número de mediciones consecutivas que superan el umbral de alerta  
+**Cálculo**: Cuenta mediciones consecutivas donde `nivel_m > 0.5m`  
+**Unidad**: adimensional (entero)  
+**Uso**: Confirma que una condición de alerta se mantiene en el tiempo
+
+---
+
+#### GET `/health`
+Verifica el estado del servicio.
+
+**Respuesta**:
+```json
+{
+  "status": "ok"
+}
+```
+
+
+## Estructura del Proyecto
+
+```
+404-Not-Found-Sleep-/
+├── simulacion/          # Simulador de sensores y gateway
+│   ├── sensor_simulator.py
+│   ├── gateway.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── cola/                # Servicio de cola HTTP
+│   ├── app.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── back/                # Backend ETL
+│   ├── app.py
+│   ├── schema.sql
+│   ├── requirements.txt
+│   └── Dockerfile
+├── DASHBOARD WEB/       # Dashboard web Next.js
+│   ├── app/
+│   ├── components/
+│   ├── lib/
+│   ├── schema.sql
+│   └── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## Características del Sistema
+
+✅ **Monitoreo en Tiempo Real**: Datos actualizados cada 30 segundos en el dashboard  
+✅ **Cálculo de Métricas Avanzadas**: 7 métricas hidrológicas diferentes  
+✅ **Sistema de Alertas Automático**: Detección y notificación de condiciones de riesgo  
+✅ **Visualización Interactiva**: Gráficos en tiempo real con Recharts  
+✅ **Gestión de Usuarios**: Sistema de suscripción para notificaciones  
+✅ **Arquitectura Modular**: Componentes independientes y escalables  
+✅ **Dockerizado**: Fácil despliegue con Docker Compose  
+✅ **Base de Datos Cloud**: Almacenamiento seguro en Supabase  
+
+---
+
+## Notas Importantes
+
+- El sistema está **completamente funcional** y no requiere modificaciones
+- La cola actual usa almacenamiento en memoria. Para producción, considera usar Redis o RabbitMQ
+- El gateway soporta 3 modos de SMS: SIMULATE (para desarrollo), TWILIO y GSM (para producción)
+- Los umbrales de alerta están configurados en el código y pueden ajustarse según necesidades
+- El dashboard requiere autenticación para acceder a las secciones administrativas (`/app/*`)
+
+---
